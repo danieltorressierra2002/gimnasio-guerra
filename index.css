@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  background-color: #0A0A0A;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(201,166,70,0.05) 0%, transparent 45%),
+    radial-gradient(circle at 90% 90%, rgba(220,38,38,0.05) 0%, transparent 45%);
+  background-attachment: fixed;
+}
+
+/* Textura tipo piso de goma de gimnasio, muy sutil */
+.texture-floor {
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 12px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 12px);
+}
+
+.font-display {
+  font-family: 'Oswald', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.campo-input {
+  width: 100%;
+  background-color: #1F1F1F;
+  border: 1px solid rgba(61,61,61,0.6);
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  color: #E8E8E8;
+  transition: border-color 150ms;
+}
+.campo-input::placeholder { color: rgba(163,163,163,0.5); }
+.campo-input:focus {
+  outline: none;
+  border-color: #C9A646;
+}
+
+/* Scrollbar tipo acero cepillado */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0A0A0A; }
+::-webkit-scrollbar-thumb { background: #3D3D3D; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #5C5C5C; }
+
+/* Foco visible accesible, con tema */
+:focus-visible {
+  outline: 2px solid #C9A646;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Animación sutil de "carga de placa" para estados de éxito */
+@keyframes plate-settle {
+  0% { transform: scaleY(0.4); opacity: 0; }
+  100% { transform: scaleY(1); opacity: 1; }
+}
+.plate-bar {
+  animation: plate-settle 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0px 0px rgba(220,38,38,0); }
+  50% { box-shadow: 0 0 18px 2px rgba(220,38,38,0.45); }
+}
+.pulse-red {
+  animation: pulse-glow 2.4s ease-in-out infinite;
+}

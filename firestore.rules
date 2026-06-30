@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function esAdmin() {
+      return exists(/databases/$(database)/documents/perfiles/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/perfiles/$(request.auth.uid)).data.rol == "admin";
+    }
+
+    // Perfiles: cada usuario puede leer su propio perfil; solo el admin puede crear/editar perfiles
+    match /perfiles/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if request.auth != null && esAdmin();
+    }
+
+    // Usuarios del gimnasio: el admin tiene control total;
+    // cada usuario solo puede leer su propio documento (no editarlo)
+    match /usuarios/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if request.auth != null && esAdmin();
+    }
+  }
+}
