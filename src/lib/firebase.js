@@ -5,14 +5,13 @@ import { getAuth } from 'firebase/auth';
 // Reemplaza estos valores con los de tu proyecto de Firebase
 // (Firebase Console > Configuración del proyecto > Tus apps > Config SDK)
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO_ID",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID",
+  apiKey: "AIzaSyCd2_9-2CrqWCSACLuM2QK14FTbzYAzbQg",
+  authDomain: "gymguerra-fb628.firebaseapp.com",
+  projectId: "gymguerra-fb628",
+  storageBucket: "gymguerra-fb628.firebasestorage.app",
+  messagingSenderId: "840060700076",
+  appId: "1:840060700076:web:7a9fe613eff110f6ae2609",
 };
-
 const app = initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);
