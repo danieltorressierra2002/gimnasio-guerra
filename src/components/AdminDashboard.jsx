@@ -8,30 +8,37 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
-import { initializeApp, deleteApp } from "firebase/app";
 import { db } from "../lib/firebase";
 import { calcularEstadoMembresia } from "../lib/membership";
 import { useAuth } from "../contexts/AuthContext";
 import UserCard from "./UserCard";
 import UserFormModal from "./UserFormModal";
 
-// Config secundaria de Firebase, usada solo para crear cuentas de usuario
-// sin desconectar la sesión del admin actual.
-const firebaseConfigSecundaria = {
-  apiKey: "AIzaSyCd2_9-2CrqWCSACLuM2QK14FTbzYAzbQg",
-  authDomain: "gymguerra-fb628.firebaseapp.com",
-  projectId: "gymguerra-fb628",
-  storageBucket: "gymguerra-fb628.firebasestorage.app",
-  messagingSenderId: "840060700076",
-  appId: "1:840060700076:web:7a9fe613eff110f6ae2609",
-};
+const FIREBASE_API_KEY = "AIzaSyCd2_9-2CrqWCSACLuM2QK14FTbzYAzbQg";
+
+async function crearCuentaFirebase(email, password) {
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, returnSecureToken: true }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = data?.error?.message || "Error al crear la cuenta";
+    throw new Error(msg);
+  }
+  return data.localId;
+}
+
 export default function AdminDashboard() {
   const { perfil, cerrarSesion } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState("");
-  const [filtro, setFiltro] = useState("todos"); // todos | activo | porVencer | vencido
+  const [filtro, setFiltro] = useState("todos");
   const [modalAbierto, setModalAbierto] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
 
@@ -75,34 +82,23 @@ export default function AdminDashboard() {
 
   async function guardarUsuario(datos) {
     if (usuarioSeleccionado) {
-      // Edición: solo actualiza el documento de Firestore
       const { password, email, ...resto } = datos;
       await updateDoc(doc(db, "usuarios", usuarioSeleccionado.id), {
         ...resto,
         actualizadoEn: serverTimestamp(),
       });
     } else {
-      // Creación: crea cuenta de Auth (en una app secundaria para no
-      // cerrar la sesión del admin) + documento de usuario + perfil
-      const secApp = initializeApp(firebaseConfigSecundaria, "secundaria-" + Date.now());
-      const secAuth = getAuth(secApp);
-      try {
-        const cred = await createUserWithEmailAndPassword(secAuth, datos.email.trim(), datos.password);
-        const uid = cred.user.uid;
-
-        const { password, ...datosUsuario } = datos;
-        await setDoc(doc(db, "usuarios", uid), {
-          ...datosUsuario,
-          creadoEn: serverTimestamp(),
-        });
-        await setDoc(doc(db, "perfiles", uid), {
-          rol: "usuario",
-          nombre: datos.nombre,
-          email: datos.email.trim(),
-        });
-      } finally {
-        await deleteApp(secApp);
-      }
+      const uid = await crearCuentaFirebase(datos.email.trim(), datos.password);
+      const { password, ...datosUsuario } = datos;
+      await setDoc(doc(db, "usuarios", uid), {
+        ...datosUsuario,
+        creadoEn: serverTimestamp(),
+      });
+      await setDoc(doc(db, "perfiles", uid), {
+        rol: "usuario",
+        nombre: datos.nombre,
+        email: datos.email.trim(),
+      });
     }
     setModalAbierto(false);
   }
@@ -115,7 +111,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-carbon texture-floor">
-      {/* Header */}
       <header className="border-b border-steel/30 bg-carbon-surface/60 backdrop-blur sticky top-0 z-20">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
@@ -134,14 +129,12 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5 pb-28">
-        {/* Estadísticas tipo tablero */}
         <div className="grid grid-cols-3 gap-3">
           <StatCard label="Al día" valor={conteos.activo} tono="verde" />
           <StatCard label="Por vencer" valor={conteos.porVencer} tono="amarillo" />
           <StatCard label="Vencidos" valor={conteos.vencido} tono="rojo" />
         </div>
 
-        {/* Búsqueda y filtros */}
         <div className="space-y-3">
           <input
             value={busqueda}
@@ -165,7 +158,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Lista de usuarios */}
         {cargando ? (
           <p className="text-center text-bone-dim py-10">Cargando usuarios...</p>
         ) : usuariosFiltrados.length === 0 ? (
@@ -190,7 +182,6 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* Botón flotante agregar */}
       <button
         onClick={abrirNuevo}
         className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-forge hover:bg-forge-glow text-carbon shadow-glow-gold flex items-center justify-center transition-transform active:scale-90"
