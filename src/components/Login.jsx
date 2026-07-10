@@ -32,10 +32,10 @@ export default function Login() {
 
         <div className="text-center mb-8">
           <h1 className="font-display text-3xl text-bone tracking-widest2 uppercase">
-            Gimnasio <span className="text-forge-glow">Guerra</span>
+            GYM <span className="text-forge-glow">GUERRA</span>
           </h1>
           <p className="text-bone-dim text-sm mt-2 tracking-wide">
-            Acceso al panel de membresías
+            Panel de membresías
           </p>
         </div>
 
