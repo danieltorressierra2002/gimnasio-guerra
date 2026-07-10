@@ -13,6 +13,7 @@ import { calcularEstadoMembresia } from "../lib/membership";
 import { useAuth } from "../contexts/AuthContext";
 import UserCard from "./UserCard";
 import UserFormModal from "./UserFormModal";
+import Tienda from "./Tienda";
 
 const FIREBASE_API_KEY = "AIzaSyCd2_9-2CrqWCSACLuM2QK14FTbzYAzbQg";
 
@@ -41,6 +42,7 @@ export default function AdminDashboard() {
   const [filtro, setFiltro] = useState("todos");
   const [modalAbierto, setModalAbierto] = useState(false);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
+  const [seccion, setSeccion] = useState("miembros"); // miembros | tienda
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "usuarios"), (snap) => {
@@ -111,11 +113,12 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-carbon texture-floor">
+      {/* Header */}
       <header className="border-b border-steel/30 bg-carbon-surface/60 backdrop-blur sticky top-0 z-20">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
             <h1 className="font-display text-xl text-bone uppercase tracking-wide">
-              Gimnasio <span className="text-forge-glow">Guerra</span>
+              GYM <span className="text-forge-glow">GUERRA</span>
             </h1>
             <p className="text-xs text-bone-dim">Hola, {perfil?.nombre || "Admin"}</p>
           </div>
@@ -126,73 +129,91 @@ export default function AdminDashboard() {
             Salir
           </button>
         </div>
+
+        {/* Navegación de secciones */}
+        <div className="max-w-3xl mx-auto px-4 flex border-t border-steel/20">
+          <NavTab activo={seccion === "miembros"} onClick={() => setSeccion("miembros")}>
+            👥 Miembros
+          </NavTab>
+          <NavTab activo={seccion === "tienda"} onClick={() => setSeccion("tienda")}>
+            🛒 Tienda
+          </NavTab>
+        </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-5 pb-28">
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard label="Al día" valor={conteos.activo} tono="verde" />
-          <StatCard label="Por vencer" valor={conteos.porVencer} tono="amarillo" />
-          <StatCard label="Vencidos" valor={conteos.vencido} tono="rojo" />
-        </div>
+        {seccion === "miembros" && (
+          <>
+            {/* Estadísticas */}
+            <div className="grid grid-cols-3 gap-3">
+              <StatCard label="Al día" valor={conteos.activo} tono="verde" />
+              <StatCard label="Por vencer" valor={conteos.porVencer} tono="amarillo" />
+              <StatCard label="Vencidos" valor={conteos.vencido} tono="rojo" />
+            </div>
 
-        <div className="space-y-3">
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar usuario..."
-            className="campo-input"
-          />
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <FiltroChip activo={filtro === "todos"} onClick={() => setFiltro("todos")}>
-              Todos ({usuarios.length})
-            </FiltroChip>
-            <FiltroChip activo={filtro === "activo"} onClick={() => setFiltro("activo")} tono="verde">
-              Al día
-            </FiltroChip>
-            <FiltroChip activo={filtro === "porVencer"} onClick={() => setFiltro("porVencer")} tono="amarillo">
-              Por vencer
-            </FiltroChip>
-            <FiltroChip activo={filtro === "vencido"} onClick={() => setFiltro("vencido")} tono="rojo">
-              Vencidos
-            </FiltroChip>
-          </div>
-        </div>
+            {/* Búsqueda y filtros */}
+            <div className="space-y-3">
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar miembro..."
+                className="campo-input"
+              />
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <FiltroChip activo={filtro === "todos"} onClick={() => setFiltro("todos")}>
+                  Todos ({usuarios.length})
+                </FiltroChip>
+                <FiltroChip activo={filtro === "activo"} onClick={() => setFiltro("activo")} tono="verde">
+                  Al día
+                </FiltroChip>
+                <FiltroChip activo={filtro === "porVencer"} onClick={() => setFiltro("porVencer")} tono="amarillo">
+                  Por vencer
+                </FiltroChip>
+                <FiltroChip activo={filtro === "vencido"} onClick={() => setFiltro("vencido")} tono="rojo">
+                  Vencidos
+                </FiltroChip>
+              </div>
+            </div>
 
-        {cargando ? (
-          <p className="text-center text-bone-dim py-10">Cargando usuarios...</p>
-        ) : usuariosFiltrados.length === 0 ? (
-          <div className="text-center py-14 border border-dashed border-steel/40 rounded-xl">
-            <p className="text-bone-dim">
-              {usuarios.length === 0
-                ? "Aún no hay usuarios registrados."
-                : "No se encontraron usuarios con ese filtro."}
-            </p>
-            {usuarios.length === 0 && (
-              <button onClick={abrirNuevo} className="mt-4 text-forge-glow font-medium underline">
-                Agregar el primero
-              </button>
+            {/* Lista de miembros */}
+            {cargando ? (
+              <p className="text-center text-bone-dim py-10">Cargando miembros...</p>
+            ) : usuariosFiltrados.length === 0 ? (
+              <div className="text-center py-14 border border-dashed border-steel/40 rounded-xl">
+                <p className="text-bone-dim">
+                  {usuarios.length === 0 ? "Aún no hay miembros registrados." : "No se encontraron miembros."}
+                </p>
+                {usuarios.length === 0 && (
+                  <button onClick={abrirNuevo} className="mt-4 text-forge-glow font-medium underline">
+                    Agregar el primero
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {usuariosFiltrados.map((u) => (
+                  <UserCard key={u.id} usuario={u} onClick={() => abrirEdicion(u)} />
+                ))}
+              </div>
             )}
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {usuariosFiltrados.map((u) => (
-              <UserCard key={u.id} usuario={u} onClick={() => abrirEdicion(u)} />
-            ))}
-          </div>
+
+            {/* Botón flotante agregar miembro */}
+            <button
+              onClick={abrirNuevo}
+              className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-forge hover:bg-forge-glow text-carbon shadow-glow-gold flex items-center justify-center transition-transform active:scale-90 z-30"
+              aria-label="Agregar miembro"
+            >
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </>
         )}
+
+        {seccion === "tienda" && <Tienda esAdmin={true} />}
       </main>
 
-      <button
-        onClick={abrirNuevo}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-forge hover:bg-forge-glow text-carbon shadow-glow-gold flex items-center justify-center transition-transform active:scale-90"
-        aria-label="Agregar usuario"
-      >
-        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-        </svg>
-      </button>
-
-      {modalAbierto && (
+      {modalAbierto && seccion === "miembros" && (
         <UserFormModal
           usuarioExistente={usuarioSeleccionado}
           onClose={() => setModalAbierto(false)}
@@ -201,6 +222,21 @@ export default function AdminDashboard() {
         />
       )}
     </div>
+  );
+}
+
+function NavTab({ activo, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+        activo
+          ? "border-forge text-forge-glow"
+          : "border-transparent text-bone-dim hover:text-bone"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
