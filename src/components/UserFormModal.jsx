@@ -2,16 +2,19 @@ import { useState, useEffect } from "react";
 import { uploadPhotoToCloudinary } from "../lib/cloudinary";
 import { calcularVencimientoDesdeInicio, hoyISO, formatearFecha } from "../lib/membership";
 
+const FIREBASE_API_KEY = "AIzaSyCd2_9-2CrqWCSACLuM2QK14FTbzYAzbQg";
+
 const VACIO = {
   nombre: "",
   telefono: "",
   fotoURL: "",
   tieneEntrenador: false,
-  metodoPago: "directo", // "directo" | "online"
+  metodoPago: "directo",
   fechaInicioPago: hoyISO(),
   fechaVencimiento: calcularVencimientoDesdeInicio(hoyISO()),
   email: "",
   password: "",
+  rol: "usuario",
 };
 
 export default function UserFormModal({ usuarioExistente, onClose, onSave, onDelete }) {
@@ -51,21 +54,34 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
     }));
   }
 
+  async function cambiarPasswordFirebase(uid, nuevaPassword) {
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ localId: uid, password: nuevaPassword, returnSecureToken: false }),
+      }
+    );
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error?.message || "Error al cambiar la contraseña");
+    }
+  }
+
   async function manejarGuardar(e) {
     e.preventDefault();
     setError("");
 
-    if (!form.nombre.trim()) {
-      setError("El nombre es obligatorio.");
-      return;
-    }
+    if (!form.nombre.trim()) { setError("El nombre es obligatorio."); return; }
     if (!esEdicion && (!form.email.trim() || !form.password.trim())) {
-      setError("Correo y contraseña son obligatorios para crear el acceso del usuario.");
-      return;
+      setError("Correo y contraseña son obligatorios."); return;
     }
     if (!esEdicion && form.password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
-      return;
+      setError("La contraseña debe tener al menos 6 caracteres."); return;
+    }
+    if (esEdicion && form.password && form.password.length < 6) {
+      setError("La nueva contraseña debe tener al menos 6 caracteres."); return;
     }
 
     setSubiendo(true);
@@ -74,10 +90,13 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
       if (archivoFoto) {
         fotoURL = await uploadPhotoToCloudinary(archivoFoto);
       }
+      if (esEdicion && form.password && form.password.trim()) {
+        await cambiarPasswordFirebase(usuarioExistente.id, form.password.trim());
+      }
       await onSave({ ...form, fotoURL });
     } catch (err) {
       console.error(err);
-      setError(err.message || "Ocurrió un error al guardar. Intenta de nuevo.");
+      setError(err.message || "Ocurrió un error al guardar.");
     } finally {
       setSubiendo(false);
     }
@@ -90,7 +109,7 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
           <h2 className="font-display text-lg text-bone uppercase tracking-wide">
             {esEdicion ? "Editar usuario" : "Agregar usuario"}
           </h2>
-          <button onClick={onClose} className="text-bone-dim hover:text-bone p-1" aria-label="Cerrar">
+          <button onClick={onClose} className="text-bone-dim hover:text-bone p-1">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -119,126 +138,77 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
             </label>
           </div>
 
-          {/* Nombre */}
           <Campo label="Nombre completo">
-            <input
-              required
-              value={form.nombre}
-              onChange={(e) => actualizar("nombre", e.target.value)}
-              className="campo-input"
-              placeholder="Ej. Carlos Pérez"
-            />
+            <input required value={form.nombre} onChange={(e) => actualizar("nombre", e.target.value)} className="campo-input" placeholder="Ej. Carlos Pérez" />
           </Campo>
 
-          {/* Teléfono */}
           <Campo label="Teléfono (opcional)">
-            <input
-              value={form.telefono}
-              onChange={(e) => actualizar("telefono", e.target.value)}
-              className="campo-input"
-              placeholder="Ej. 0414-1234567"
-            />
+            <input value={form.telefono} onChange={(e) => actualizar("telefono", e.target.value)} className="campo-input" placeholder="Ej. 0414-1234567" />
           </Campo>
 
-          {/* Fecha de inicio de pago */}
-          <Campo label="Fecha de inicio del mes pagado">
-            <input
-              type="date"
-              required
-              value={form.fechaInicioPago}
-              onChange={(e) => manejarCambioFechaInicio(e.target.value)}
-              className="campo-input"
-            />
-            <p className="text-xs text-bone-dim mt-1.5">
-              Vence el {formatearFecha(form.fechaVencimiento)} (un mes después)
-            </p>
-          </Campo>
-
-          {/* Método de pago */}
-          <Campo label="Método de pago">
-            <div className="grid grid-cols-2 gap-2">
-              <BotonToggle
-                activo={form.metodoPago === "directo"}
-                onClick={() => actualizar("metodoPago", "directo")}
-              >
-                Pago directo
-              </BotonToggle>
-              <BotonToggle
-                activo={form.metodoPago === "online"}
-                onClick={() => actualizar("metodoPago", "online")}
-              >
-                Pago online
-              </BotonToggle>
-            </div>
-          </Campo>
-
-          {/* Entrenador */}
-          <Campo label="¿Tiene entrenador?">
-            <div className="grid grid-cols-2 gap-2">
-              <BotonToggle
-                activo={form.tieneEntrenador === true}
-                onClick={() => actualizar("tieneEntrenador", true)}
-              >
-                Sí
-              </BotonToggle>
-              <BotonToggle
-                activo={form.tieneEntrenador === false}
-                onClick={() => actualizar("tieneEntrenador", false)}
-              >
-                No
-              </BotonToggle>
-            </div>
-          </Campo>
-
-          {!esEdicion && (
-            <div className="border-t border-steel/30 pt-4 space-y-4">
-              <p className="text-xs font-medium text-forge-glow uppercase tracking-wide">
-                Acceso del usuario
-              </p>
-              <Campo label="Correo de acceso">
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => actualizar("email", e.target.value)}
-                  className="campo-input"
-                  placeholder="correo@ejemplo.com"
-                />
+          {/* Campos de membresía solo para usuarios normales */}
+          {form.rol === "usuario" && (
+            <>
+              <Campo label="Fecha de inicio del mes pagado">
+                <input type="date" required value={form.fechaInicioPago} onChange={(e) => manejarCambioFechaInicio(e.target.value)} className="campo-input" />
+                <p className="text-xs text-bone-dim mt-1.5">Vence el {formatearFecha(form.fechaVencimiento)}</p>
               </Campo>
-              <Campo label="Contraseña">
-                <input
-                  type="password"
-                  required
-                  value={form.password}
-                  onChange={(e) => actualizar("password", e.target.value)}
-                  className="campo-input"
-                  placeholder="Mínimo 6 caracteres"
-                />
+
+              <Campo label="Método de pago">
+                <div className="grid grid-cols-2 gap-2">
+                  <BotonToggle activo={form.metodoPago === "directo"} onClick={() => actualizar("metodoPago", "directo")}>Pago directo</BotonToggle>
+                  <BotonToggle activo={form.metodoPago === "online"} onClick={() => actualizar("metodoPago", "online")}>Pago online</BotonToggle>
+                </div>
               </Campo>
-            </div>
+
+              <Campo label="¿Tiene entrenador?">
+                <div className="grid grid-cols-2 gap-2">
+                  <BotonToggle activo={form.tieneEntrenador === true} onClick={() => actualizar("tieneEntrenador", true)}>Sí</BotonToggle>
+                  <BotonToggle activo={form.tieneEntrenador === false} onClick={() => actualizar("tieneEntrenador", false)}>No</BotonToggle>
+                </div>
+              </Campo>
+            </>
           )}
 
-          {error && (
-            <p className="text-sm text-blood-glow bg-blood/10 border border-blood/30 rounded-lg px-3 py-2">
-              {error}
+          <Campo label="Rol">
+            <div className="grid grid-cols-2 gap-2">
+              <BotonToggle activo={form.rol === "usuario"} onClick={() => actualizar("rol", "usuario")}>👤 Usuario</BotonToggle>
+              <BotonToggle activo={form.rol === "admin"} onClick={() => actualizar("rol", "admin")}>⚙️ Administrador</BotonToggle>
+            </div>
+          </Campo>
+
+          <div className="border-t border-steel/30 pt-4 space-y-4">
+            <p className="text-xs font-medium text-forge-glow uppercase tracking-wide">
+              {esEdicion ? "Acceso del usuario" : "Crear acceso"}
             </p>
+            {!esEdicion && (
+              <Campo label="Correo de acceso">
+                <input type="email" required value={form.email} onChange={(e) => actualizar("email", e.target.value)} className="campo-input" placeholder="correo@ejemplo.com" />
+              </Campo>
+            )}
+            <Campo label={esEdicion ? "Nueva contraseña (vacío = no cambiar)" : "Contraseña"}>
+              <input
+                type="password"
+                required={!esEdicion}
+                value={form.password}
+                onChange={(e) => actualizar("password", e.target.value)}
+                className="campo-input"
+                placeholder={esEdicion ? "Nueva contraseña (opcional)" : "Mínimo 6 caracteres"}
+              />
+            </Campo>
+          </div>
+
+          {error && (
+            <p className="text-sm text-blood-glow bg-blood/10 border border-blood/30 rounded-lg px-3 py-2">{error}</p>
           )}
 
           <div className="flex gap-3 pt-2">
             {esEdicion && onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(usuarioExistente)}
-                className="flex-1 bg-transparent border border-blood/40 text-blood-glow hover:bg-blood/10 font-medium py-3 rounded-lg transition-colors"
-              >
+              <button type="button" onClick={() => onDelete(usuarioExistente)} className="flex-1 bg-transparent border border-blood/40 text-blood-glow hover:bg-blood/10 font-medium py-3 rounded-lg transition-colors">
                 Eliminar
               </button>
             )}
-            <button
-              type="submit"
-              disabled={subiendo}
-              className="flex-1 bg-forge hover:bg-forge-glow disabled:opacity-50 text-carbon font-display font-semibold uppercase tracking-wide py-3 rounded-lg transition-all active:scale-[0.98]"
-            >
+            <button type="submit" disabled={subiendo} className="flex-1 bg-forge hover:bg-forge-glow disabled:opacity-50 text-carbon font-display font-semibold uppercase tracking-wide py-3 rounded-lg transition-all active:scale-[0.98]">
               {subiendo ? "Guardando..." : "Guardar"}
             </button>
           </div>
@@ -251,9 +221,7 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
 function Campo({ label, children }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-bone-dim uppercase tracking-wide mb-1.5">
-        {label}
-      </label>
+      <label className="block text-xs font-medium text-bone-dim uppercase tracking-wide mb-1.5">{label}</label>
       {children}
     </div>
   );
@@ -261,15 +229,7 @@ function Campo({ label, children }) {
 
 function BotonToggle({ activo, onClick, children }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`py-2.5 rounded-lg font-medium text-sm border transition-colors ${
-        activo
-          ? "bg-forge/15 border-forge text-forge-glow"
-          : "bg-carbon-raised border-steel/50 text-bone-dim hover:border-steel-light"
-      }`}
-    >
+    <button type="button" onClick={onClick} className={`py-2.5 rounded-lg font-medium text-sm border transition-colors ${activo ? "bg-forge/15 border-forge text-forge-glow" : "bg-carbon-raised border-steel/50 text-bone-dim hover:border-steel-light"}`}>
       {children}
     </button>
   );
