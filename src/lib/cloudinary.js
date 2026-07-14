@@ -1,7 +1,7 @@
 // Configuración de Cloudinary
 // Reemplaza con tu cloud name y upload preset (sin firmar / unsigned)
-const CLOUDINARY_CLOUD_NAME = "TU_CLOUD_NAME";
-const CLOUDINARY_UPLOAD_PRESET = "TU_UPLOAD_PRESET";
+const CLOUDINARY_CLOUD_NAME = "dw26hsnvz";
+const CLOUDINARY_UPLOAD_PRESET = "gimnasio_guerra_fotos";
 
 /**
  * Sube una imagen a Cloudinary y devuelve la URL segura.
