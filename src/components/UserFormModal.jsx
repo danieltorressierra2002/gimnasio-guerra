@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { uploadPhotoToCloudinary } from "../lib/cloudinary";
 import { calcularVencimientoDesdeInicio, hoyISO, formatearFecha } from "../lib/membership";
-import { auth } from "../lib/firebase";
-
-const FIREBASE_API_KEY = "AIzaSyCd2_9-2CrqWCSACLuM2QK14FTbzYAzbQg";
 
 const VACIO = {
   nombre: "",
@@ -16,6 +13,7 @@ const VACIO = {
   email: "",
   password: "",
   rol: "usuario",
+  passwordTemporal: "",
 };
 
 export default function UserFormModal({ usuarioExistente, onClose, onSave, onDelete }) {
@@ -28,7 +26,7 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
 
   useEffect(() => {
     if (usuarioExistente) {
-      setForm({ ...VACIO, ...usuarioExistente, password: "" });
+      setForm({ ...VACIO, ...usuarioExistente, password: "", passwordTemporal: "" });
       setPreviewFoto(usuarioExistente.fotoURL || "");
     } else {
       setForm(VACIO);
@@ -55,31 +53,6 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
     }));
   }
 
-  async function cambiarPasswordFirebase(uid, nuevaPassword) {
-    // Obtenemos el token del admin actualmente conectado
-    const adminToken = await auth.currentUser.getIdToken();
-
-    const res = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FIREBASE_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${adminToken}`,
-        },
-        body: JSON.stringify({
-          localId: uid,
-          password: nuevaPassword,
-          returnSecureToken: false,
-        }),
-      }
-    );
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data?.error?.message || "Error al cambiar la contraseña");
-    }
-  }
-
   async function manejarGuardar(e) {
     e.preventDefault();
     setError("");
@@ -91,8 +64,8 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
     if (!esEdicion && form.password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres."); return;
     }
-    if (esEdicion && form.password && form.password.length < 6) {
-      setError("La nueva contraseña debe tener al menos 6 caracteres."); return;
+    if (esEdicion && form.passwordTemporal && form.passwordTemporal.length < 6) {
+      setError("La contraseña temporal debe tener al menos 6 caracteres."); return;
     }
 
     setSubiendo(true);
@@ -100,9 +73,6 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
       let fotoURL = form.fotoURL;
       if (archivoFoto) {
         fotoURL = await uploadPhotoToCloudinary(archivoFoto);
-      }
-      if (esEdicion && form.password && form.password.trim()) {
-        await cambiarPasswordFirebase(usuarioExistente.id, form.password.trim());
       }
       await onSave({ ...form, fotoURL });
     } catch (err) {
@@ -191,21 +161,39 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
             <p className="text-xs font-medium text-forge-glow uppercase tracking-wide">
               {esEdicion ? "Acceso del usuario" : "Crear acceso"}
             </p>
+
             {!esEdicion && (
-              <Campo label="Correo de acceso">
-                <input type="email" required value={form.email} onChange={(e) => actualizar("email", e.target.value)} className="campo-input" placeholder="correo@ejemplo.com" />
-              </Campo>
+              <>
+                <Campo label="Correo de acceso">
+                  <input type="email" required value={form.email} onChange={(e) => actualizar("email", e.target.value)} className="campo-input" placeholder="correo@ejemplo.com" />
+                </Campo>
+                <Campo label="Contraseña inicial">
+                  <input type="password" required value={form.password} onChange={(e) => actualizar("password", e.target.value)} className="campo-input" placeholder="Mínimo 6 caracteres" />
+                </Campo>
+              </>
             )}
-            <Campo label={esEdicion ? "Nueva contraseña (vacío = no cambiar)" : "Contraseña"}>
-              <input
-                type="password"
-                required={!esEdicion}
-                value={form.password}
-                onChange={(e) => actualizar("password", e.target.value)}
-                className="campo-input"
-                placeholder={esEdicion ? "Nueva contraseña (opcional)" : "Mínimo 6 caracteres"}
-              />
-            </Campo>
+
+            {esEdicion && (
+              <div className="bg-carbon-raised border border-steel/40 rounded-xl p-4 space-y-3">
+                <p className="text-xs text-bone-dim">
+                  Si el usuario olvidó su contraseña, escribe una contraseña temporal aquí. El usuario la verá en su panel y podrá cambiarla.
+                </p>
+                <Campo label="Contraseña temporal (opcional)">
+                  <input
+                    type="text"
+                    value={form.passwordTemporal}
+                    onChange={(e) => actualizar("passwordTemporal", e.target.value)}
+                    className="campo-input"
+                    placeholder="Ej. gym1234 (mínimo 6 caracteres)"
+                  />
+                </Campo>
+                {form.passwordTemporal && (
+                  <p className="text-xs text-amberwarn-glow">
+                    ⚠️ Dile al usuario que entre con esta contraseña y la cambie desde su panel.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {error && (
