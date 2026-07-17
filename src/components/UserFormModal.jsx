@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { uploadPhotoToCloudinary } from "../lib/cloudinary";
 import { calcularVencimientoDesdeInicio, hoyISO, formatearFecha } from "../lib/membership";
 
+const PASSWORD_FIJA = "gymguerra2026";
+
 const VACIO = {
   nombre: "",
   telefono: "",
@@ -11,9 +13,7 @@ const VACIO = {
   fechaInicioPago: hoyISO(),
   fechaVencimiento: calcularVencimientoDesdeInicio(hoyISO()),
   email: "",
-  password: "",
   rol: "usuario",
-  passwordTemporal: "",
 };
 
 export default function UserFormModal({ usuarioExistente, onClose, onSave, onDelete }) {
@@ -26,7 +26,7 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
 
   useEffect(() => {
     if (usuarioExistente) {
-      setForm({ ...VACIO, ...usuarioExistente, password: "", passwordTemporal: "" });
+      setForm({ ...VACIO, ...usuarioExistente });
       setPreviewFoto(usuarioExistente.fotoURL || "");
     } else {
       setForm(VACIO);
@@ -58,14 +58,8 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
     setError("");
 
     if (!form.nombre.trim()) { setError("El nombre es obligatorio."); return; }
-    if (!esEdicion && (!form.email.trim() || !form.password.trim())) {
-      setError("Correo y contraseña son obligatorios."); return;
-    }
-    if (!esEdicion && form.password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres."); return;
-    }
-    if (esEdicion && form.passwordTemporal && form.passwordTemporal.length < 6) {
-      setError("La contraseña temporal debe tener al menos 6 caracteres."); return;
+    if (!esEdicion && !form.email.trim()) {
+      setError("El correo es obligatorio."); return;
     }
 
     setSubiendo(true);
@@ -74,7 +68,8 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
       if (archivoFoto) {
         fotoURL = await uploadPhotoToCloudinary(archivoFoto);
       }
-      await onSave({ ...form, fotoURL });
+      // La contraseña siempre es gymguerra2026 para usuarios nuevos
+      await onSave({ ...form, fotoURL, password: PASSWORD_FIJA });
     } catch (err) {
       console.error(err);
       setError(err.message || "Ocurrió un error al guardar.");
@@ -124,7 +119,7 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
           </Campo>
 
           <Campo label="Teléfono (opcional)">
-            <input value={form.telefono} onChange={(e) => actualizar("telefono", e.target.value)} className="campo-input" placeholder="Ej. 0414-1234567" />
+            <input value={form.telefono} onChange={(e) => actualizar("telefono", e.target.value)} className="campo-input" placeholder="Ej. 300-1234567" />
           </Campo>
 
           {form.rol === "usuario" && (
@@ -157,44 +152,17 @@ export default function UserFormModal({ usuarioExistente, onClose, onSave, onDel
             </div>
           </Campo>
 
-          <div className="border-t border-steel/30 pt-4 space-y-4">
-            <p className="text-xs font-medium text-forge-glow uppercase tracking-wide">
-              {esEdicion ? "Acceso del usuario" : "Crear acceso"}
-            </p>
-
-            {!esEdicion && (
-              <>
-                <Campo label="Correo de acceso">
-                  <input type="email" required value={form.email} onChange={(e) => actualizar("email", e.target.value)} className="campo-input" placeholder="correo@ejemplo.com" />
-                </Campo>
-                <Campo label="Contraseña inicial">
-                  <input type="password" required value={form.password} onChange={(e) => actualizar("password", e.target.value)} className="campo-input" placeholder="Mínimo 6 caracteres" />
-                </Campo>
-              </>
-            )}
-
-            {esEdicion && (
-              <div className="bg-carbon-raised border border-steel/40 rounded-xl p-4 space-y-3">
-                <p className="text-xs text-bone-dim">
-                  Si el usuario olvidó su contraseña, escribe una contraseña temporal aquí. El usuario la verá en su panel y podrá cambiarla.
-                </p>
-                <Campo label="Contraseña temporal (opcional)">
-                  <input
-                    type="text"
-                    value={form.passwordTemporal}
-                    onChange={(e) => actualizar("passwordTemporal", e.target.value)}
-                    className="campo-input"
-                    placeholder="Ej. gym1234 (mínimo 6 caracteres)"
-                  />
-                </Campo>
-                {form.passwordTemporal && (
-                  <p className="text-xs text-amberwarn-glow">
-                    ⚠️ Dile al usuario que entre con esta contraseña y la cambie desde su panel.
-                  </p>
-                )}
+          {!esEdicion && (
+            <div className="border-t border-steel/30 pt-4 space-y-4">
+              <p className="text-xs font-medium text-forge-glow uppercase tracking-wide">Acceso del usuario</p>
+              <Campo label="Correo de acceso">
+                <input type="email" required value={form.email} onChange={(e) => actualizar("email", e.target.value)} className="campo-input" placeholder="carlos@gymguerra.com" />
+              </Campo>
+              <div className="bg-carbon-raised border border-steel/30 rounded-lg px-4 py-3">
+                <p className="text-xs text-bone-dim">🔑 La contraseña de acceso será automáticamente <span className="text-forge-glow font-medium">gymguerra2026</span> para todos los usuarios.</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {error && (
             <p className="text-sm text-blood-glow bg-blood/10 border border-blood/30 rounded-lg px-3 py-2">{error}</p>
