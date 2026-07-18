@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
-export default function Login() {
+export default function Login({ onVolver }) {
   const { iniciarSesion } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +25,6 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-carbon texture-floor flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        {/* Signature: ícono de mancuerna construido en SVG */}
         <div className="flex justify-center mb-6">
           <DumbbellMark />
         </div>
@@ -35,18 +34,13 @@ export default function Login() {
             GYM <span className="text-forge-glow">GUERRA</span>
           </h1>
           <p className="text-bone-dim text-sm mt-2 tracking-wide">
-            Panel de membresías
+            Acceso al panel de membresías
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-carbon-surface border border-steel/40 rounded-xl p-6 shadow-plate space-y-4"
-        >
+        <form onSubmit={handleSubmit} className="bg-carbon-surface border border-steel/40 rounded-xl p-6 shadow-plate space-y-4">
           <div>
-            <label className="block text-xs font-medium text-bone-dim uppercase tracking-wide mb-1.5">
-              Correo
-            </label>
+            <label className="block text-xs font-medium text-bone-dim uppercase tracking-wide mb-1.5">Correo</label>
             <input
               type="email"
               required
@@ -54,14 +48,12 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-carbon-raised border border-steel/50 rounded-lg px-4 py-2.5 text-bone placeholder:text-bone-dim/50 focus:border-forge outline-none transition-colors"
-              placeholder="tucorreo@ejemplo.com"
+              placeholder="tucorreo@gymguerra.com"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-bone-dim uppercase tracking-wide mb-1.5">
-              Contraseña
-            </label>
+            <label className="block text-xs font-medium text-bone-dim uppercase tracking-wide mb-1.5">Contraseña</label>
             <input
               type="password"
               required
@@ -74,9 +66,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="text-sm text-blood-glow bg-blood/10 border border-blood/30 rounded-lg px-3 py-2">
-              {error}
-            </p>
+            <p className="text-sm text-blood-glow bg-blood/10 border border-blood/30 rounded-lg px-3 py-2">{error}</p>
           )}
 
           <button
@@ -88,9 +78,11 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-bone-dim/60 text-xs mt-6">
-          ¿Olvidaste tu contraseña? Contacta al administrador del gimnasio.
-        </p>
+        {onVolver && (
+          <button onClick={onVolver} className="w-full mt-4 text-bone-dim hover:text-bone text-sm py-2 transition-colors">
+            ← Volver a la tienda
+          </button>
+        )}
       </div>
     </div>
   );
