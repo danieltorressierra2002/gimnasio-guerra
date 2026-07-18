@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp, addDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { calcularEstadoMembresia } from "../lib/membership";
+import { calcularEstadoMembresia, hoyISO } from "../lib/membership";
 import { useAuth } from "../contexts/AuthContext";
 import UserCard from "./UserCard";
 import UserFormModal from "./UserFormModal";
 import Tienda from "./Tienda";
 import OfertasFlash from "./OfertasFlash";
+import HistorialPagos from "./HistorialPagos";
 
 const FIREBASE_API_KEY = "AIzaSyCd2_9-2CrqWCSACLuM2QK14FTbzYAzbQg";
 
@@ -62,12 +63,44 @@ export default function AdminDashboard() {
   async function guardarUsuario(datos) {
     if (usuarioSeleccionado) {
       const { password, email, ...resto } = datos;
-      await updateDoc(doc(db, "usuarios", usuarioSeleccionado.id), { ...resto, actualizadoEn: serverTimestamp() });
+      const datosPrevios = usuarioSeleccionado;
+
+      // Verificar si cambió la fecha de inicio (renovación de pago)
+      const cambioFecha = datos.fechaInicioPago && datos.fechaInicioPago !== datosPrevios.fechaInicioPago;
+
+      await updateDoc(doc(db, "usuarios", usuarioSeleccionado.id), {
+        ...resto,
+        actualizadoEn: serverTimestamp(),
+      });
+
+      // Registrar en historial si hubo renovación de pago
+      if (cambioFecha) {
+        await addDoc(collection(db, "historialPagos"), {
+          usuarioId: usuarioSeleccionado.id,
+          nombreUsuario: datos.nombre,
+          fechaPago: hoyISO(),
+          fechaInicioPago: datos.fechaInicioPago,
+          fechaVencimiento: datos.fechaVencimiento,
+          metodoPago: datos.metodoPago || "directo",
+          registradoEn: serverTimestamp(),
+        });
+      }
     } else {
       const uid = await crearCuentaFirebase(datos.email.trim(), datos.password);
       const { password, ...datosUsuario } = datos;
       await setDoc(doc(db, "usuarios", uid), { ...datosUsuario, creadoEn: serverTimestamp() });
       await setDoc(doc(db, "perfiles", uid), { rol: datos.rol || "usuario", nombre: datos.nombre, email: datos.email.trim() });
+
+      // Registrar primer pago en historial
+      await addDoc(collection(db, "historialPagos"), {
+        usuarioId: uid,
+        nombreUsuario: datos.nombre,
+        fechaPago: hoyISO(),
+        fechaInicioPago: datos.fechaInicioPago,
+        fechaVencimiento: datos.fechaVencimiento,
+        metodoPago: datos.metodoPago || "directo",
+        registradoEn: serverTimestamp(),
+      });
     }
     setModalAbierto(false);
   }
@@ -90,8 +123,9 @@ export default function AdminDashboard() {
         </div>
         <div className="max-w-3xl mx-auto px-4 flex border-t border-steel/20 overflow-x-auto">
           <NavTab activo={seccion === "miembros"} onClick={() => setSeccion("miembros")}>👥 Miembros</NavTab>
+          <NavTab activo={seccion === "historial"} onClick={() => setSeccion("historial")}>📊 Historial</NavTab>
           <NavTab activo={seccion === "tienda"} onClick={() => setSeccion("tienda")}>🛒 Tienda</NavTab>
-          <NavTab activo={seccion === "ofertas"} onClick={() => setSeccion("ofertas")}>⚡ Ofertas Flash</NavTab>
+          <NavTab activo={seccion === "ofertas"} onClick={() => setSeccion("ofertas")}>⚡ Ofertas</NavTab>
         </div>
       </header>
 
@@ -135,6 +169,7 @@ export default function AdminDashboard() {
             </button>
           </>
         )}
+        {seccion === "historial" && <HistorialPagos />}
         {seccion === "tienda" && <Tienda esAdmin={true} />}
         {seccion === "ofertas" && <OfertasFlash esAdmin={true} />}
       </main>
