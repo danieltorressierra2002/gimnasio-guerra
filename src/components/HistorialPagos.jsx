@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { formatearFecha } from "../lib/membership";
-import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
 
 export default function HistorialPagos() {
   const [usuarios, setUsuarios] = useState([]);
@@ -34,36 +33,33 @@ export default function HistorialPagos() {
     return coincideAnio && coincideMes && coincideUsuario;
   });
 
-  // Estadísticas
   const totalPagos = pagosFiltrados.length;
   const usuariosPagaron = new Set(pagosFiltrados.map(p => p.usuarioId)).size;
   const pagoDirecto = pagosFiltrados.filter(p => p.metodoPago === "directo").length;
   const pagoOnline = pagosFiltrados.filter(p => p.metodoPago === "online").length;
 
-  function exportarExcel() {
-    const datos = pagosFiltrados.map((p) => ({
-      "Nombre": p.nombreUsuario || "—",
-      "Fecha de pago": p.fechaPago || "—",
-      "Fecha inicio período": p.fechaInicioPago || "—",
-      "Fecha vencimiento": p.fechaVencimiento || "—",
-      "Método de pago": p.metodoPago === "online" ? "Pago en línea" : "Pago directo",
-    }));
+  function exportarCSV() {
+    const encabezados = ["Nombre", "Fecha de pago", "Fecha inicio período", "Fecha vencimiento", "Método de pago"];
+    const filas = pagosFiltrados.map((p) => [
+      p.nombreUsuario || "—",
+      p.fechaPago || "—",
+      p.fechaInicioPago || "—",
+      p.fechaVencimiento || "—",
+      p.metodoPago === "online" ? "Pago en línea" : "Pago directo",
+    ]);
 
-    const ws = XLSX.utils.json_to_sheet(datos);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Historial de Pagos");
+    const contenido = [encabezados, ...filas]
+      .map(fila => fila.map(celda => `"${celda}"`).join(","))
+      .join("\n");
 
-    // Ajustar ancho de columnas
-    ws["!cols"] = [
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 20 },
-      { wch: 20 },
-      { wch: 18 },
-    ];
-
-    const nombreArchivo = `GymGuerra_Pagos_${filtroAnio}${filtroMes ? "_" + filtroMes : ""}.xlsx`;
-    XLSX.writeFile(wb, nombreArchivo);
+    const blob = new Blob(["\uFEFF" + contenido], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const nombreArchivo = `GymGuerra_Pagos_${filtroAnio}${filtroMes ? "_" + filtroMes : ""}.csv`;
+    link.download = nombreArchivo;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   const meses = [
@@ -115,13 +111,13 @@ export default function HistorialPagos() {
         <StatCard label="Pago online" valor={pagoOnline} tono="verde" />
       </div>
 
-      {/* Botón exportar */}
+      {/* Botón exportar CSV (abre en Excel) */}
       {pagosFiltrados.length > 0 && (
         <button
-          onClick={exportarExcel}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-display font-semibold uppercase tracking-wide py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+          onClick={exportarCSV}
+          className="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-display font-semibold uppercase tracking-wide py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
         >
-          📊 Exportar a Excel
+          📊 Descargar resumen (Excel/CSV)
         </button>
       )}
 
@@ -131,7 +127,7 @@ export default function HistorialPagos() {
       ) : pagosFiltrados.length === 0 ? (
         <div className="text-center py-14 border border-dashed border-steel/40 rounded-xl">
           <p className="text-bone-dim">No hay registros de pago para este período.</p>
-          <p className="text-xs text-bone-dim mt-2">Los pagos se registran automáticamente cuando actualizas la fecha de un usuario.</p>
+          <p className="text-xs text-bone-dim mt-2">Los pagos se registran automáticamente cuando actualizas la fecha de un miembro.</p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -140,7 +136,7 @@ export default function HistorialPagos() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-display text-bone tracking-wide">{pago.nombreUsuario || "—"}</p>
-                  <p className="text-xs text-bone-dim mt-0.5">Pagado el {formatearFecha(pago.fechaPago)}</p>
+                  <p className="text-xs text-bone-dim mt-0.5">Registrado el {formatearFecha(pago.fechaPago)}</p>
                   <p className="text-xs text-bone-dim">Período: {formatearFecha(pago.fechaInicioPago)} → {formatearFecha(pago.fechaVencimiento)}</p>
                 </div>
                 <span className={`shrink-0 text-xs px-2 py-1 rounded-full border ${
