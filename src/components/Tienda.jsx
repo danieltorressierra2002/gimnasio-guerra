@@ -9,6 +9,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { uploadPhotoToCloudinary } from "../lib/cloudinary";
 
 const CATEGORIAS = [
   "Suplementos",
@@ -26,7 +27,19 @@ const VACIO = {
   oferta: false,
   descripcionOferta: "",
   descripcion: "",
+  fotoURL: "",
 };
+
+function categoriaEmoji(categoria) {
+  const map = {
+    "Suplementos": "💊",
+    "Medicamentos": "💉",
+    "Equipamiento": "🥊",
+    "Ropa y accesorios": "🧤",
+    "Otros": "📦",
+  };
+  return map[categoria] || "📦";
+}
 
 export default function Tienda({ esAdmin }) {
   const [productos, setProductos] = useState([]);
@@ -48,17 +61,6 @@ export default function Tienda({ esAdmin }) {
   const productosFiltrados = productos.filter((p) =>
     categoriaFiltro === "Todos" ? true : p.categoria === categoriaFiltro
   );
-
-  function abrirNuevo() {
-    setProductoSeleccionado(null);
-    setModalAbierto(true);
-  }
-
-  function abrirEdicion(producto) {
-    if (!esAdmin) return;
-    setProductoSeleccionado(producto);
-    setModalAbierto(true);
-  }
 
   async function guardarProducto(datos) {
     if (productoSeleccionado) {
@@ -104,12 +106,10 @@ export default function Tienda({ esAdmin }) {
       ) : productosFiltrados.length === 0 ? (
         <div className="text-center py-14 border border-dashed border-steel/40 rounded-xl">
           <p className="text-bone-dim">
-            {productos.length === 0
-              ? "Aún no hay productos en la tienda."
-              : "No hay productos en esta categoría."}
+            {productos.length === 0 ? "Aún no hay productos en la tienda." : "No hay productos en esta categoría."}
           </p>
           {esAdmin && productos.length === 0 && (
-            <button onClick={abrirNuevo} className="mt-4 text-forge-glow font-medium underline">
+            <button onClick={() => { setProductoSeleccionado(null); setModalAbierto(true); }} className="mt-4 text-forge-glow font-medium underline">
               Agregar el primero
             </button>
           )}
@@ -121,7 +121,7 @@ export default function Tienda({ esAdmin }) {
               key={p.id}
               producto={p}
               esAdmin={esAdmin}
-              onClick={() => abrirEdicion(p)}
+              onClick={() => { if (esAdmin) { setProductoSeleccionado(p); setModalAbierto(true); } }}
             />
           ))}
         </div>
@@ -130,7 +130,7 @@ export default function Tienda({ esAdmin }) {
       {/* Botón flotante solo para admin */}
       {esAdmin && (
         <button
-          onClick={abrirNuevo}
+          onClick={() => { setProductoSeleccionado(null); setModalAbierto(true); }}
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-forge hover:bg-forge-glow text-carbon shadow-glow-gold flex items-center justify-center transition-transform active:scale-90 z-30"
           aria-label="Agregar producto"
         >
@@ -155,63 +155,63 @@ export default function Tienda({ esAdmin }) {
 function ProductoCard({ producto, esAdmin, onClick }) {
   return (
     <div
-      onClick={esAdmin ? onClick : undefined}
-      className={`bg-carbon-surface border border-steel/40 rounded-xl p-4 flex items-start gap-4 transition-all duration-200
+      onClick={onClick}
+      className={`bg-carbon-surface border border-steel/40 rounded-xl overflow-hidden transition-all duration-200
         ${esAdmin ? "cursor-pointer hover:border-steel-light hover:-translate-y-0.5 hover:shadow-plate" : ""}
         ${!producto.disponible ? "opacity-60" : ""}
       `}
     >
-      {/* Icono de categoría */}
-      <div className="shrink-0 w-12 h-12 rounded-xl bg-carbon-raised border border-steel/40 flex items-center justify-center text-2xl">
-        {categoriaEmoji(producto.categoria)}
-      </div>
+      {/* Foto del producto */}
+      {producto.fotoURL && (
+        <img
+          src={producto.fotoURL}
+          alt={producto.nombre}
+          className="w-full h-40 object-cover"
+        />
+      )}
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <p className="font-display text-bone text-base tracking-wide">{producto.nombre}</p>
-          <p className="font-display text-forge-glow text-lg shrink-0">
-            ${Number(producto.precio).toLocaleString("es-ES")}
-          </p>
-        </div>
-
-        <p className="text-xs text-bone-dim mt-0.5">{producto.categoria}</p>
-
-        {producto.descripcion && (
-          <p className="text-xs text-bone-dim mt-1.5 line-clamp-2">{producto.descripcion}</p>
+      <div className="p-4 flex items-start gap-3">
+        {!producto.fotoURL && (
+          <div className="shrink-0 w-12 h-12 rounded-xl bg-carbon-raised border border-steel/40 flex items-center justify-center text-2xl">
+            {categoriaEmoji(producto.categoria)}
+          </div>
         )}
 
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {producto.oferta && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blood/15 border border-blood/40 text-blood-glow">
-              🔥 {producto.descripcionOferta || "¡OFERTA!"}
-            </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-display text-bone text-base tracking-wide">{producto.nombre}</p>
+            <p className="font-display text-forge-glow text-lg shrink-0">
+              ${Number(producto.precio).toLocaleString("es-ES")}
+            </p>
+          </div>
+          <p className="text-xs text-bone-dim mt-0.5">{producto.categoria}</p>
+          {producto.descripcion && (
+            <p className="text-xs text-bone-dim mt-1.5 line-clamp-2">{producto.descripcion}</p>
           )}
-          <span className={`text-xs px-2 py-0.5 rounded-full border ${
-            producto.disponible
-              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-              : "bg-steel/20 border-steel/40 text-bone-dim"
-          }`}>
-            {producto.disponible ? "✓ Disponible" : "Agotado"}
-          </span>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {producto.oferta && (
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blood/15 border border-blood/40 text-blood-glow">
+                🔥 {producto.descripcionOferta || "¡OFERTA!"}
+              </span>
+            )}
+            <span className={`text-xs px-2 py-0.5 rounded-full border ${
+              producto.disponible
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                : "bg-steel/20 border-steel/40 text-bone-dim"
+            }`}>
+              {producto.disponible ? "✓ Disponible" : "Agotado"}
+            </span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function categoriaEmoji(categoria) {
-  const map = {
-    "Suplementos": "💊",
-    "Medicamentos": "💉",
-    "Equipamiento": "🥊",
-    "Ropa y accesorios": "🧤",
-    "Otros": "📦",
-  };
-  return map[categoria] || "📦";
-}
-
 function ProductoFormModal({ productoExistente, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(productoExistente ? { ...VACIO, ...productoExistente } : VACIO);
+  const [archivoFoto, setArchivoFoto] = useState(null);
+  const [previewFoto, setPreviewFoto] = useState(productoExistente?.fotoURL || "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const esEdicion = Boolean(productoExistente);
@@ -220,13 +220,24 @@ function ProductoFormModal({ productoExistente, onClose, onSave, onDelete }) {
     setForm((prev) => ({ ...prev, [campo]: valor }));
   }
 
+  function manejarSeleccionFoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setArchivoFoto(file);
+    setPreviewFoto(URL.createObjectURL(file));
+  }
+
   async function manejarGuardar(e) {
     e.preventDefault();
     if (!form.nombre.trim()) { setError("El nombre es obligatorio."); return; }
     if (!form.precio || isNaN(form.precio)) { setError("El precio debe ser un número válido."); return; }
     setGuardando(true);
     try {
-      await onSave(form);
+      let fotoURL = form.fotoURL;
+      if (archivoFoto) {
+        fotoURL = await uploadPhotoToCloudinary(archivoFoto);
+      }
+      await onSave({ ...form, fotoURL });
     } catch (err) {
       setError(err.message || "Error al guardar.");
       setGuardando(false);
@@ -248,6 +259,31 @@ function ProductoFormModal({ productoExistente, onClose, onSave, onDelete }) {
         </div>
 
         <form onSubmit={manejarGuardar} className="p-5 space-y-4">
+
+          {/* Foto del producto */}
+          <Campo label="Foto del producto">
+            <div className="space-y-2">
+              {previewFoto && (
+                <img src={previewFoto} alt="Vista previa" className="w-full h-40 object-cover rounded-lg border border-steel/40" />
+              )}
+              <label className="cursor-pointer block">
+                <span className="inline-flex items-center gap-2 bg-carbon-raised border border-steel/50 hover:border-forge text-bone text-sm font-medium px-4 py-2.5 rounded-lg transition-colors w-full justify-center">
+                  📷 {previewFoto ? "Cambiar foto" : "Subir foto del producto"}
+                </span>
+                <input type="file" accept="image/*" onChange={manejarSeleccionFoto} className="hidden" />
+              </label>
+              {previewFoto && (
+                <button
+                  type="button"
+                  onClick={() => { setPreviewFoto(""); setArchivoFoto(null); actualizar("fotoURL", ""); }}
+                  className="text-xs text-blood-glow hover:underline w-full text-center"
+                >
+                  Eliminar foto
+                </button>
+              )}
+            </div>
+          </Campo>
+
           <Campo label="Nombre del producto">
             <input required value={form.nombre} onChange={(e) => actualizar("nombre", e.target.value)} className="campo-input" placeholder="Ej. Creatina monohidrato 500g" />
           </Campo>
@@ -258,7 +294,7 @@ function ProductoFormModal({ productoExistente, onClose, onSave, onDelete }) {
             </select>
           </Campo>
 
-          <Campo label="Precio (en tu moneda local)">
+          <Campo label="Precio">
             <input type="number" required min="0" step="0.01" value={form.precio} onChange={(e) => actualizar("precio", e.target.value)} className="campo-input" placeholder="Ej. 25.00" />
           </Campo>
 
