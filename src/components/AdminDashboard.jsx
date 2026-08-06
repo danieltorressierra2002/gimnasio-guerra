@@ -72,6 +72,10 @@ export default function AdminDashboard() {
         ...resto,
         actualizadoEn: serverTimestamp(),
       });
+       await updateDoc(doc(db, "perfiles", usuarioSeleccionado.id),{
+         rol: datos.rol || "usuario",
+         nombre: datos.nombre,
+       });
 
       // Registrar en historial si hubo renovación de pago
       if (cambioFecha) {
