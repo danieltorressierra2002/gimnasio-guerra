@@ -1,68 +1,67 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import {
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { createContext, useContext, useEffect, useState } from "react"
+import { supabase } from "../lib/supabase"
 
-const AuthContext = createContext(null);
+const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [firebaseUser, setFirebaseUser] = useState(null);
-  const [perfil, setPerfil] = useState(null); // datos extendidos: rol, nombre, etc.
-  const [cargando, setCargando] = useState(true);
+  const [user, setUser] = useState(null)
+  const [perfil, setPerfil] = useState(null)
+  const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        try {
-          const snap = await getDoc(doc(db, "perfiles", user.uid));
-          if (snap.exists()) {
-            setPerfil({ id: user.uid, ...snap.data() });
-          } else {
-            setPerfil(null);
-          }
-        } catch (err) {
-          console.error("Error cargando perfil:", err);
-          setPerfil(null);
-        }
-      } else {
-        setPerfil(null);
-      }
-      setCargando(false);
-    });
-    return unsubscribe;
-  }, []);
+    // Obtener sesión actual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      if (session?.user) cargarPerfil(session.user.id)
+      else setCargando(false)
+    })
+
+    // Escuchar cambios de sesión
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) cargarPerfil(session.user.id)
+      else { setPerfil(null); setCargando(false) }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  async function cargarPerfil(userId) {
+    try {
+      const { data } = await supabase
+        .from("perfiles")
+        .select("*")
+        .eq("id", userId)
+        .single()
+      setPerfil(data)
+    } catch {
+      setPerfil(null)
+    } finally {
+      setCargando(false)
+    }
+  }
 
   async function iniciarSesion(email, password) {
-    await signInWithEmailAndPassword(auth, email, password);
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
   }
 
   async function cerrarSesion() {
-    await signOut(auth);
+    await supabase.auth.signOut()
   }
 
-  const esAdmin = perfil?.rol === "admin";
-  const esUsuario = perfil?.rol === "usuario";
-
   const value = {
-    firebaseUser,
-    perfil,
-    cargando,
-    esAdmin,
-    esUsuario,
-    iniciarSesion,
-    cerrarSesion,
-  };
+    user, perfil, cargando,
+    esAdmin: perfil?.rol === "admin",
+    esUsuario: perfil?.rol === "usuario",
+    iniciarSesion, cerrarSesion,
+  }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth debe usarse dentro de AuthProvider");
-  return ctx;
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error("useAuth debe usarse dentro de AuthProvider")
+  return ctx
 }
